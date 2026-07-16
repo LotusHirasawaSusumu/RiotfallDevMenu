@@ -74,6 +74,33 @@ local Config = {
         Transparency = 0.3,
         Color        = Color3.fromRGB(255, 255, 255),
     },
+    Rage = {
+        -- AutoFire
+        AutoFireFOV         = 15,    -- px radius, tight — only fires when crosshair near target
+        AutoFireRateMin     = 0.08,  -- seconds between shots minimum
+        AutoFireRateMax     = 0.12,  -- seconds between shots maximum (humanized)
+
+        -- SpinBot
+        SpinSpeed           = 15,    -- degrees per frame
+        SpinMode            = "Horizontal",  -- "Horizontal"|"Vertical"|"Jitter"|"Random"
+        SpinJitterAmplitude = 45,    -- degrees, for jitter mode
+        SpinOffset          = 180,   -- base yaw offset in degrees
+
+        -- BunnyHop
+        BhopBaseSpeed       = 24,    -- WalkSpeed override while hopping (game default unknown)
+        BhopAirSpeed        = 30,    -- speed applied at peak of jump
+        BhopJumpPower       = 50,    -- JumpPower override
+        BhopDefaultSpeed    = 16,    -- restore value on disable
+
+        -- AirStrafe
+        AirStrafeForce      = 60,    -- studs/s² lateral force while airborne
+        AirStrafeMaxSpeed   = 40,
+
+        -- ThirdPerson
+        ThirdPersonDistance = 8,
+        ThirdPersonHeight   = 1.6,
+        ThirdPersonFOV      = 90,
+    },
 }
 
 return Config

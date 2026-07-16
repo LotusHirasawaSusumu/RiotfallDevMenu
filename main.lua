@@ -25,6 +25,7 @@ local ESP    = _require("systems/ESP")   (Services, Config, State)
 local Aimbot = _require("systems/Aimbot")(Services, Config, State)
 local CamSys = _require("systems/Camera")(Services, Config, State)
 local Events = _require("systems/Events")(Services, Config, State)
+local Rage = _require("systems/Rage")(Services, Config, State)
 
 local repo         = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library      = loadstring(game:HttpGet(repo .. "Library.lua"))()
@@ -45,6 +46,7 @@ local Tabs = {
     ESP      = Window:AddTab("ESP",      "eye"),
     Aimbot   = Window:AddTab("Aimbot",   "crosshair"),
     Camera   = Window:AddTab("Camera",   "camera"),
+    Rage     = Window:AddTab("Rage",     "zap"),
     Players  = Window:AddTab("Players",  "users"),
     Settings = Window:AddTab("Settings", "settings"),
 }
@@ -53,6 +55,7 @@ local FOVCircle   = _require("ui/FOVCircle")        (Services, Config, State)
 local ESPTab      = _require("ui/Tabs/ESPTab")      (Services, Config, State, Library, Tabs, ESP)
 local AimbotTab   = _require("ui/Tabs/AimbotTab")   (Services, Config, State, Library, Tabs, Aimbot, FOVCircle)
 local CameraTab   = _require("ui/Tabs/CameraTab")   (Services, Config, State, Library, Tabs, CamSys)
+local RageTab     = _require("ui/Tabs/RageTab")     (Services, Config, State, Library, Tabs, Rage)
 local PlayersTab  = _require("ui/Tabs/PlayersTab")  (Services, Config, State, Library, Tabs)
 local SettingsTab = _require("ui/Tabs/SettingsTab") (Services, Config, State, Library, Tabs, Window,
                                                      ThemeManager, SaveManager)
@@ -79,13 +82,15 @@ local Camera     = Services.Camera
 State:Track(RunService.RenderStepped:Connect(function()
     if Library.Unloaded then return end
     Aimbot.step()
+    Rage.step(dt)                           -- AutoFire, SpinBot, ThirdPerson
     FOVCircle.update(Aimbot.getFOV())
     CamSys.step()
 end))
 
 -- Heartbeat: camera labels (no frame-sync needed)
-State:Track(RunService.Heartbeat:Connect(function()
+State:Track(RunService.Heartbeat:Connect(function(dt)
     if Library.Unloaded then return end
+    Rage.physicsStep(dt)                    -- AirStrafe (physics, not render)
     if Options.CamFOVLbl then
         Options.CamFOVLbl:SetText("FOV: " .. math.floor(Camera.FieldOfView) .. "°")
     end
@@ -107,4 +112,12 @@ task.spawn(function()
         Description = "Team: " .. State:GetLocalTeam() .. "  |  RightShift = toggle",
         Time        = 4,
     })
+end)
+
+Library:OnUnload(function()
+    Rage.cleanup()
+    ESP.removeAll()
+    CamSys.disable()
+    FOVCircle.destroy()
+    State:Cleanup()
 end)
