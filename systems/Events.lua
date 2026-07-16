@@ -1,9 +1,9 @@
+-- systems/Events.lua
 return function(Services, Config, State)
     local RS = Services.ReplicatedStorage
+    local M  = {}
 
-    local Events = {}
-
-    function Events.connect()
+    function M.connect()
         local c2c = RS:WaitForChild(Config.Events.ClientToClient, 10)
         if not c2c then return end
 
@@ -34,5 +34,5 @@ return function(Services, Config, State)
         end
     end
 
-    return Events
+    return M
 end

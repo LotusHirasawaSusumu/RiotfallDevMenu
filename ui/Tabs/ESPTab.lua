@@ -1,28 +1,23 @@
+-- ui/Tabs/ESPTab.lua
 return function(Services, Config, _State, Library, Tabs, ESP)
     local Options = Library.Options
     local Toggles = Library.Toggles
 
     local LeftBox  = Tabs.ESP:AddLeftGroupbox("Chams ESP")
+    local RightBox = Tabs.ESP:AddRightGroupbox("Name Tag")
     local ColorBox = Tabs.ESP:AddRightGroupbox("Colors")
 
-    -- Controls
+    -- Left: core toggles
     LeftBox:AddToggle("ESPEnabled", {
-        Text    = "Enable Chams ESP",
+        Text    = "Enable ESP",
         Default = false,
-        Tooltip = "Highlights via CharacterMeshes (bypasses game monitoring)",
         Risky   = true,
+        Tooltip = "Chams via CharacterMeshes (bypasses game monitoring)",
     })
 
     LeftBox:AddToggle("ESPEnemiesOnly", {
         Text    = "Enemies Only",
         Default = true,
-        Tooltip = "Only highlight the enemy team",
-    })
-
-    LeftBox:AddToggle("ESPShowName", {
-        Text    = "Show Names",
-        Default = false,
-        Tooltip = "Renders player name above each character",
     })
 
     LeftBox:AddDivider()
@@ -30,19 +25,44 @@ return function(Services, Config, _State, Library, Tabs, ESP)
     LeftBox:AddSlider("ESPFillTransp", {
         Text     = "Fill Transparency",
         Default  = 40,
-        Min      = 0,
-        Max      = 100,
-        Rounding = 0,
-        Suffix   = "%",
+        Min      = 0, Max = 100, Rounding = 0, Suffix = "%",
     })
 
     LeftBox:AddSlider("ESPOutlineTransp", {
         Text     = "Outline Transparency",
         Default  = 10,
-        Min      = 0,
-        Max      = 100,
-        Rounding = 0,
-        Suffix   = "%",
+        Min      = 0, Max = 100, Rounding = 0, Suffix = "%",
+    })
+
+    -- Right: name tag settings (CS2-style)
+    RightBox:AddToggle("ESPShowName", {
+        Text    = "Show Name Tag",
+        Default = false,
+        Tooltip = "CS2-style tag: name, distance, weapon, HP bar",
+    })
+
+    RightBox:AddToggle("ESPShowDistance", {
+        Text    = "Show Distance",
+        Default = true,
+    })
+
+    RightBox:AddToggle("ESPShowWeapon", {
+        Text    = "Show Weapon",
+        Default = true,
+    })
+
+    RightBox:AddToggle("ESPShowHealthBar", {
+        Text    = "Show Health Bar",
+        Default = true,
+    })
+
+    RightBox:AddDivider()
+
+    RightBox:AddSlider("ESPMaxDistance", {
+        Text     = "Max Tag Distance",
+        Default  = Config.ESP.MaxNameDistance,
+        Min      = 20, Max = 500, Rounding = 0, Suffix = "m",
+        Tooltip  = "Hide name tag beyond this many meters",
     })
 
     -- Colors
@@ -69,6 +89,25 @@ return function(Services, Config, _State, Library, Tabs, ESP)
 
     Toggles.ESPShowName:OnChanged(function()
         ESP.setShowName(Toggles.ESPShowName.Value)
+    end)
+
+    Toggles.ESPShowDistance:OnChanged(function()
+        ESP.setShowDistance(Toggles.ESPShowDistance.Value)
+        if Toggles.ESPEnabled.Value then ESP.refreshAll() end
+    end)
+
+    Toggles.ESPShowWeapon:OnChanged(function()
+        ESP.setShowWeapon(Toggles.ESPShowWeapon.Value)
+        if Toggles.ESPEnabled.Value then ESP.refreshAll() end
+    end)
+
+    Toggles.ESPShowHealthBar:OnChanged(function()
+        ESP.setShowHealthBar(Toggles.ESPShowHealthBar.Value)
+        if Toggles.ESPEnabled.Value then ESP.refreshAll() end
+    end)
+
+    Options.ESPMaxDistance:OnChanged(function()
+        ESP.setMaxDistance(Options.ESPMaxDistance.Value)
     end)
 
     Options.ESPFillTransp:OnChanged(function()

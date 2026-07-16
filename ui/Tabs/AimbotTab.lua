@@ -1,15 +1,16 @@
+-- ui/Tabs/AimbotTab.lua
 return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     local Options = Library.Options
     local Toggles = Library.Toggles
 
-    local LeftBox = Tabs.Aimbot:AddLeftGroupbox("Aimbot")
+    local LeftBox  = Tabs.Aimbot:AddLeftGroupbox("Aimbot")
     local RightBox = Tabs.Aimbot:AddRightGroupbox("Target Bone")
 
     LeftBox:AddToggle("AimbotEnabled", {
         Text    = "Enable Aimbot",
         Default = false,
-        Tooltip = "Hold RMB to lock onto nearest target",
         Risky   = true,
+        Tooltip = "Hold RMB to aim at nearest target",
     })
 
     LeftBox:AddToggle("AimbotEnemyOnly", {
@@ -20,7 +21,7 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     LeftBox:AddToggle("AimbotVisCheck", {
         Text    = "Visibility Check",
         Default = true,
-        Tooltip = "Only aim at targets with clear line of sight",
+        Tooltip = "Skip targets behind walls",
     })
 
     LeftBox:AddDivider()
@@ -28,21 +29,15 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     LeftBox:AddSlider("AimbotFOV", {
         Text     = "FOV Radius",
         Default  = Config.Aimbot.FOVRadius,
-        Min      = 10,
-        Max      = 500,
-        Rounding = 0,
-        Suffix   = "px",
-        Tooltip  = "Screen pixel radius to search for targets",
+        Min      = 10, Max = 500, Rounding = 0, Suffix = "px",
+        Tooltip  = "Pixel radius — circle diameter = this value × 2",
     })
 
     LeftBox:AddSlider("AimbotSmoothing", {
         Text     = "Smoothing",
         Default  = 15,
-        Min      = 0,
-        Max      = 99,
-        Rounding = 0,
-        Suffix   = "%",
-        Tooltip  = "0% = instant snap | 99% = very slow",
+        Min      = 0, Max = 99, Rounding = 0, Suffix = "%",
+        Tooltip  = "0% = instant | 99% = very slow",
     })
 
     LeftBox:AddDivider()
@@ -50,7 +45,7 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     LeftBox:AddToggle("FOVCircleVisible", {
         Text    = "Show FOV Circle",
         Default = false,
-        Tooltip = "Thin 1px ring showing aimbot FOV radius",
+        Tooltip = "Thin 1px ring at aimbot FOV radius",
     })
 
     LeftBox:AddLabel("FOV Circle Color")
@@ -61,24 +56,23 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
 
     -- Bone selector
     RightBox:AddDropdown("AimbotBone", {
-        Values  = { "Top (Head)", "Center (Chest)", "Bottom (Legs)" },
+        Values  = { "Head", "Chest", "Pelvis", "Legs" },
         Default = 1,
         Text    = "Target Bone",
-        Tooltip = "Top = head | Center = chest | Bottom = legs",
+        Tooltip = "Uses animated CharacterCollisions bones with static fallback",
     })
 
     RightBox:AddDivider()
-    RightBox:AddLabel("Top    → head  (+1.25 above Center)", true)
-    RightBox:AddLabel("Center → chest (reference point)",    true)
-    RightBox:AddLabel("Bottom → legs  (-1.25 below Center)", true)
+    RightBox:AddLabel("Head   → Neck bone (animated)", true)
+    RightBox:AddLabel("Chest  → MidUpperSpine (animated)", true)
+    RightBox:AddLabel("Pelvis → LowerSpine (animated)", true)
+    RightBox:AddLabel("Legs   → UpperLeg.L/R (animated)", true)
+    RightBox:AddDivider()
+    RightBox:AddLabel("Velocity prediction enabled.", true)
+    RightBox:AddLabel("Fallback to static parts if", true)
+    RightBox:AddLabel("collision model unavailable.", true)
 
     -- Wire
-    local boneMap = {
-        ["Top (Head)"]     = "Top",
-        ["Center (Chest)"] = "Center",
-        ["Bottom (Legs)"]  = "Bottom",
-    }
-
     Toggles.AimbotEnabled:OnChanged(function()
         Aimbot.setEnabled(Toggles.AimbotEnabled.Value)
     end)
@@ -100,7 +94,7 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     end)
 
     Options.AimbotBone:OnChanged(function()
-        Aimbot.setBone(boneMap[Options.AimbotBone.Value] or "Top")
+        Aimbot.setBone(Options.AimbotBone.Value)
     end)
 
     Toggles.FOVCircleVisible:OnChanged(function()
@@ -110,7 +104,4 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     Options.FOVCircleColor:OnChanged(function()
         FOVCircle.setColor(Options.FOVCircleColor.Value)
     end)
-
-    -- Render loop hook: pass current FOV radius to FOVCircle each frame
-    -- This is done in main.lua's RenderStepped via FOVCircle.update(Aimbot.getFOV())
 end

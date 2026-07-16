@@ -1,17 +1,18 @@
+-- ui/Tabs/CameraTab.lua
 return function(Services, Config, _State, Library, Tabs, CamSys)
     local Options = Library.Options
     local Toggles = Library.Toggles
 
-    local LeftBox  = Tabs.Camera:AddLeftGroupbox("Field of View")
-    local RightBox = Tabs.Camera:AddRightGroupbox("Camera Info")
+    local L = Tabs.Camera:AddLeftGroupbox("Field of View")
+    local R = Tabs.Camera:AddRightGroupbox("Camera Info")
 
-    LeftBox:AddToggle("CamFOVEnabled", {
+    L:AddToggle("CamFOVEnabled", {
         Text    = "Custom FOV",
         Default = false,
-        Tooltip = "Override game default FOV (70)",
+        Tooltip = "Override game default FOV (70°)",
     })
 
-    LeftBox:AddSlider("CamFOVValue", {
+    L:AddSlider("CamFOVValue", {
         Text     = "FOV Value",
         Default  = Config.Camera.DefaultFOV,
         Min      = Config.Camera.MinFOV,
@@ -20,8 +21,8 @@ return function(Services, Config, _State, Library, Tabs, CamSys)
         Suffix   = "°",
     })
 
-    RightBox:AddLabel("CamFOVLbl", { Text = "FOV: 70°",     DoesWrap = false })
-    RightBox:AddLabel("CamPosLbl", { Text = "Position: ...", DoesWrap = false })
+    R:AddLabel("CamFOVLbl", { Text = "FOV: 70°",     DoesWrap = false })
+    R:AddLabel("CamPosLbl", { Text = "Position: ...", DoesWrap = false })
 
     Toggles.CamFOVEnabled:OnChanged(function()
         CamSys.setEnabled(Toggles.CamFOVEnabled.Value)

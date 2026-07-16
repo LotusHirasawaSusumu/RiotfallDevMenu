@@ -1,7 +1,7 @@
+-- ui/Tabs/SettingsTab.lua
 return function(Services, Config, _State, Library, Tabs, Window,
                 ThemeManager, SaveManager)
     local Options = Library.Options
-
     local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
 
     MenuBox:AddToggle("KeybindMenuOpen", {
@@ -17,18 +17,15 @@ return function(Services, Config, _State, Library, Tabs, Window,
     })
 
     MenuBox:AddDropdown("NotificationSide", {
-        Values   = { "Left", "Right" },
-        Default  = "Right",
-        Text     = "Notification Side",
+        Values = { "Left", "Right" }, Default = "Right",
+        Text   = "Notification Side",
         Callback = function(v) Library:SetNotifySide(v) end,
     })
 
     MenuBox:AddSlider("UICornerSlider", {
         Text     = "Corner Radius",
         Default  = Library.CornerRadius or 6,
-        Min      = 0,
-        Max      = 20,
-        Rounding = 0,
+        Min = 0, Max = 20, Rounding = 0,
         Callback = function(v) Window:SetCornerRadius(v) end,
     })
 
@@ -36,9 +33,7 @@ return function(Services, Config, _State, Library, Tabs, Window,
 
     MenuBox:AddLabel("Menu Keybind")
         :AddKeyPicker("MenuKeybind", {
-            Default = "RightShift",
-            NoUI    = true,
-            Text    = "Menu keybind",
+            Default = "RightShift", NoUI = true, Text = "Menu keybind",
         })
 
     MenuBox:AddDivider()
