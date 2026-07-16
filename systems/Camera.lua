@@ -1,42 +1,33 @@
---[[
-    Camera.lua
-    Custom FOV management.
-    Maintains FOV every frame since the game uses Scriptable camera
-    and may reset FieldOfView.
-]]
+return function(Services, Config, _State)
+    local Camera = Services.Camera
 
-local Services  = require("core/Services")
-local Config    = require("core/Config")
+    local CamSettings = {
+        Enabled = false,
+        FOV     = Config.Camera.DefaultFOV,
+    }
 
-local CameraSystem  = {}
-local CFG           = Config.Camera
+    local CamSys = {}
 
-function CameraSystem.apply()
-    if CFG.FOVEnabled then
-        Services.Camera.FieldOfView = CFG.FOVValue
-    else
-        Services.Camera.FieldOfView = CFG.DefaultFOV
-    end
-end
-
--- Called every frame — only writes if value drifted
-function CameraSystem.step()
-    if CFG.FOVEnabled then
-        if Services.Camera.FieldOfView ~= CFG.FOVValue then
-            Services.Camera.FieldOfView = CFG.FOVValue
+    function CamSys.step()
+        if CamSettings.Enabled and Camera.FieldOfView ~= CamSettings.FOV then
+            Camera.FieldOfView = CamSettings.FOV
         end
     end
-end
 
-function CameraSystem.enable(fovValue)
-    if fovValue then CFG.FOVValue = fovValue end
-    CFG.FOVEnabled = true
-    CameraSystem.apply()
-end
+    function CamSys.setEnabled(v)
+        CamSettings.Enabled = v
+        if not v then Camera.FieldOfView = Config.Camera.DefaultFOV end
+    end
 
-function CameraSystem.disable()
-    CFG.FOVEnabled = false
-    CameraSystem.apply()
-end
+    function CamSys.setFOV(v)
+        CamSettings.FOV = v
+        if CamSettings.Enabled then Camera.FieldOfView = v end
+    end
 
-return CameraSystem
+    function CamSys.disable()
+        CamSettings.Enabled    = false
+        Camera.FieldOfView     = Config.Camera.DefaultFOV
+    end
+
+    return CamSys
+end

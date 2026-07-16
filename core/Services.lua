@@ -1,22 +1,31 @@
---[[
-    Services.lua
-    Central service reference cache.
-    Import this instead of calling GetService repeatedly.
-]]
+local Players    = game:GetService("Players")
+local LP         = Players.LocalPlayer
+local Workspace  = game:GetService("Workspace")
 
 local Services = {
-    Players         = game:GetService("Players"),
-    RunService      = game:GetService("RunService"),
-    UserInputService= game:GetService("UserInputService"),
-    TweenService    = game:GetService("TweenService"),
-    Teams           = game:GetService("Teams"),
+    Players           = Players,
+    LP                = LP,
+    RunService        = game:GetService("RunService"),
+    UserInputService  = game:GetService("UserInputService"),
+    Teams             = game:GetService("Teams"),
     ReplicatedStorage = game:GetService("ReplicatedStorage"),
-    Workspace       = game:GetService("Workspace"),
-    StarterGui      = game:GetService("StarterGui"),
-    HttpService     = game:GetService("HttpService"),
+    Workspace         = Workspace,
+    HttpService       = game:GetService("HttpService"),
+    Camera            = Workspace.CurrentCamera,
+    CharacterMeshes   = Workspace:WaitForChild("CharacterMeshes", 10),
 }
 
-Services.LP     = Services.Players.LocalPlayer
-Services.Camera = Services.Workspace.CurrentCamera
+function Services.getTeamName(player)
+    local ok, t = pcall(function() return player.Team end)
+    return (ok and t) and t.Name or "NONE"
+end
+
+function Services.isEnemy(player)
+    if player == Services.LP then return false end
+    local ok, lpTeam = pcall(function() return Services.LP.Team end)
+    local ok2, pTeam = pcall(function() return player.Team end)
+    if not ok or not ok2 then return true end
+    return lpTeam ~= pTeam
+end
 
 return Services

@@ -1,171 +1,140 @@
 --[[
-    ╔══════════════════════════════════════════╗
-    ║   RIOTFALL Dev Menu  v1.1                ║
-    ║   main.lua — Entry point                 ║
-    ║                                          ║
-    ║   GitHub: github.com/your-repo           ║
-    ║   Game: RIOTFALL [Beta] on Roblox        ║
-    ╚══════════════════════════════════════════╝
-
-    Execution order:
-        1. Load core modules (Config, Services, State)
-        2. Load system modules (ESP, Aimbot, Camera, Events)
-        3. Build UI (Window → Tabs → Pages)
-        4. Connect events & player hooks
-        5. Start render loop
+    RIOTFALL Dev Menu v2.2
+    GitHub: https://github.com/LotusHirasawaSusumu/RiotfallDevMenu
+    Load: loadstring(game:HttpGet(
+      "https://raw.githubusercontent.com/LotusHirasawaSusumu/RiotfallDevMenu/main/main.lua"
+    ))()
 ]]
 
--- ── Module loader ─────────────────────────────────────────────────
--- In a single-file executor environment, paste all modules inline
--- above this section and replace require() with direct table refs.
--- For GitHub multi-file usage, use a loader like:
---   local function require(path) ... end
+-- ── HTTP module loader ────────────────────────────────────────────
+local RAW = "https://raw.githubusercontent.com/LotusHirasawaSusumu/RiotfallDevMenu/main/"
+local _cache = {}
 
--- ── Executor single-file shim ─────────────────────────────────────
--- All module code is defined in the sections above (inlined).
--- In the GitHub repo, each file is separate and require() works normally.
+local function _require(path)
+    if _cache[path] then return _cache[path] end
+    local src = game:HttpGet(RAW .. path .. ".lua")
+    local fn, err = loadstring(src, path)
+    if not fn then
+        error("[RiotfallDevMenu] Failed to load module '" .. path .. "': " .. tostring(err))
+    end
+    local result = fn()
+    _cache[path] = result
+    return result
+end
 
-local Config        = require("core/Config")
-local Services      = require("core/Services")
-local State         = require("core/State")
+-- ── Load core (no dependencies) ──────────────────────────────────
+local Services = _require("core/Services")
+local Config   = _require("core/Config")
+local State    = _require("core/State")
 
-local ESP           = require("systems/ESP")
-local Aimbot        = require("systems/Aimbot")
-local CameraSystem  = require("systems/Camera")
-local Events        = require("systems/Events")
+-- ── Inject shared globals into each module via environment ───────
+-- Systems and UI modules receive these as function arguments,
+-- avoiding any require() call inside them.
 
-local Theme         = require("ui/Theme")
-local Window        = require("ui/Window")
-local Tabs          = require("ui/Tabs")
+-- ── Load systems ─────────────────────────────────────────────────
+local ESP     = _require("systems/ESP")    (Services, Config, State)
+local Aimbot  = _require("systems/Aimbot") (Services, Config, State)
+local CamSys  = _require("systems/Camera") (Services, Config, State)
+local Events  = _require("systems/Events") (Services, Config, State)
 
-local ESPPage       = require("ui/pages/ESPPage")
-local AimbotPage    = require("ui/pages/AimbotPage")
-local CameraPage    = require("ui/pages/CameraPage")
-local PlayersPage   = require("ui/pages/PlayersPage")
+-- ── Obsidian bootstrap ───────────────────────────────────────────
+local repo         = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library      = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local SaveManager  = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+local Options      = Library.Options
+local Toggles      = Library.Toggles
 
-local TeamUtil      = require("util/TeamUtil")
+-- ── Window ───────────────────────────────────────────────────────
+local Window = Library:CreateWindow({
+    Title            = "RIOTFALL Dev Menu",
+    Footer           = "v" .. Config.VERSION,
+    ShowCustomCursor = true,
+    NotifySide       = "Right",
+    AutoShow         = true,
+})
 
-local LP            = Services.LP
-local UIS           = Services.UserInputService
-local Players       = Services.Players
-local RunService    = Services.RunService
+local Tabs = {
+    ESP      = Window:AddTab("ESP",      "eye"),
+    Aimbot   = Window:AddTab("Aimbot",   "crosshair"),
+    Camera   = Window:AddTab("Camera",   "camera"),
+    Players  = Window:AddTab("Players",  "users"),
+    Settings = Window:AddTab("Settings", "settings"),
+}
 
--- ── Clean up any existing instance ───────────────────────────────
-local oldGui = LP.PlayerGui:FindFirstChild("RiotfallDevMenu")
-if oldGui then oldGui:Destroy() end
+-- ── Load UI modules ──────────────────────────────────────────────
+local FOVCircle  = _require("ui/FOVCircle")  (Services, Config, State)
+local ESPTab     = _require("ui/Tabs/ESPTab")     (Services, Config, State, Library, Tabs, ESP)
+local AimbotTab  = _require("ui/Tabs/AimbotTab")  (Services, Config, State, Library, Tabs, Aimbot, FOVCircle)
+local CameraTab  = _require("ui/Tabs/CameraTab")  (Services, Config, State, Library, Tabs, CamSys)
+local PlayersTab = _require("ui/Tabs/PlayersTab") (Services, Config, State, Library, Tabs)
+local SettingsTab= _require("ui/Tabs/SettingsTab")(Services, Config, State, Library, Tabs, Window,
+                                                    ThemeManager, SaveManager)
 
--- ── Build ScreenGui ───────────────────────────────────────────────
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name              = "RiotfallDevMenu"
-ScreenGui.ResetOnSpawn      = false
-ScreenGui.ZIndexBehavior    = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder      = 999
-ScreenGui.IgnoreGuiInset    = true
-ScreenGui.Parent            = LP.PlayerGui
+-- ── Player lifecycle ─────────────────────────────────────────────
+local Players = Services.Players
+local LP      = Services.LP
 
--- ── Build Window ──────────────────────────────────────────────────
-Window.build(ScreenGui)
-
--- ── Build Tabs ────────────────────────────────────────────────────
-local TAB_NAMES = { "ESP", "AIMBOT", "CAMERA", "PLAYERS" }
-Tabs.init(Window.TabBarFrame, Window.ContentArea, TAB_NAMES)
-
--- ── Build Pages ───────────────────────────────────────────────────
-ESPPage.build(    Tabs.getScroll("ESP"))
-AimbotPage.build( Tabs.getScroll("AIMBOT"))
-CameraPage.build( Tabs.getScroll("CAMERA"))
-PlayersPage.build(Tabs.getScroll("PLAYERS"))
-
--- ── Init systems ──────────────────────────────────────────────────
-TeamUtil.refreshLocalTeam()
-Events.connect()
-
--- ── Player lifecycle hooks ────────────────────────────────────────
 State:Track(Players.PlayerAdded:Connect(function(player)
-    TeamUtil.refreshLocalTeam()
-    PlayersPage.onPlayerAdded(player)
-    if Config.ESP.Enabled then
-        task.delay(1.5, function()
-            if player and player.Parent then
-                ESP.refreshAll()
-            end
+    State.LocalTeamName = Services.getTeamName(LP)
+    if Toggles.ESPEnabled and Toggles.ESPEnabled.Value then
+        task.delay(2, function()
+            if player and player.Parent then ESP.refreshAll() end
         end)
     end
+    State:Track(player:GetPropertyChangedSignal("Team"):Connect(function()
+        local mesh = Services.CharacterMeshes
+            and Services.CharacterMeshes:FindFirstChild(player.Name)
+        if mesh and Toggles.ESPEnabled and Toggles.ESPEnabled.Value then
+            ESP.applyToMesh(mesh)
+        end
+    end))
 end))
 
-State:Track(Players.PlayerRemoving:Connect(function(player)
-    PlayersPage.removeCard(player.Name)
+State:Track(Players.PlayerRemoving:Connect(function()
+    State.LocalTeamName = Services.getTeamName(LP)
 end))
 
--- ── INSERT key to toggle visibility ──────────────────────────────
-State:Track(UIS.InputBegan:Connect(function(inp, processed)
-    if processed then return end
-    if inp.KeyCode == Config.TOGGLE_KEY then
-        State.MenuVisible           = not State.MenuVisible
-        Window.Main.Visible         = State.MenuVisible
-        Window.Shadow.Visible       = State.MenuVisible
-    end
-end))
+-- ── Unload ───────────────────────────────────────────────────────
+Library:OnUnload(function()
+    ESP.removeAll()
+    CamSys.disable()
+    FOVCircle.destroy()
+    State:Cleanup()
+end)
 
--- ── Render loop ───────────────────────────────────────────────────
-local renderConn
-renderConn = RunService.RenderStepped:Connect(function()
+-- ── Render loop ──────────────────────────────────────────────────
+local RunService = Services.RunService
+local Camera     = Services.Camera
 
-    -- Close requested by Window module
-    if ScreenGui:GetAttribute("_RequestClose") then
-        renderConn:Disconnect()
-        State.Cleanup()
-        Config.ESP.Enabled  = false
-        ESP.refreshAll()
-        CameraSystem.disable()
-        ScreenGui:Destroy()
-        return
-    end
+State:Track(RunService.RenderStepped:Connect(function()
+    if Library.Unloaded then return end
 
-    -- Per-frame systems
-    TeamUtil.refreshLocalTeam()
+    State.LocalTeamName = Services.getTeamName(LP)
     Aimbot.step()
-    CameraSystem.step()
+    CamSys.step()
+    FOVCircle.update()
 
-    -- Status bar
-    if Window.StatusLabel then
-        Window.StatusLabel.Text = string.format(
-            " ● %s | HP: %s/%s | Ammo: %s | Lock: %s",
-            State.LocalTeamName,
-            tostring(State.CurrentHP),
-            tostring(State.MaxHP),
-            State.CurrentAmmo,
-            State.AimbotLocked
-                and State.AimbotLocked.Parent
-                and State.AimbotLocked.Parent.Name
-                or "none"
-        )
+    if Options.CamFOVLbl then
+        Options.CamFOVLbl:SetText("FOV: " .. math.floor(Camera.FieldOfView) .. "°")
     end
-
-    -- Camera tab live info
-    if State.ActiveTab == "CAMERA" and CameraPage.fovLabel then
-        local cam = Services.Camera
-        CameraPage.fovLabel.Text = "FOV: " .. math.floor(cam.FieldOfView)
-        local s, pos = pcall(function() return cam.CFrame.Position end)
-        if s and CameraPage.posLabel then
-            CameraPage.posLabel.Text = string.format(
-                "Pos: %.1f, %.1f, %.1f", pos.X, pos.Y, pos.Z)
+    if Options.CamPosLbl then
+        local ok, pos = pcall(function() return Camera.CFrame.Position end)
+        if ok then
+            Options.CamPosLbl:SetText(string.format(
+                "Pos: %.0f, %.0f, %.0f", pos.X, pos.Y, pos.Z))
         end
     end
+end))
 
-    -- Players tab live refresh
-    if State.ActiveTab == "PLAYERS" then
-        PlayersPage.refresh()
-    end
-end)
-State:Track(renderConn)
-
--- ── Notification ──────────────────────────────────────────────────
+-- ── Init ─────────────────────────────────────────────────────────
 task.spawn(function()
-    task.wait(0.5)
-    Services.StarterGui:SetCore("SendNotification", {
-        Title    = "RIOTFALL Dev Menu v" .. Config.VERSION,
-        Text     = "[INSERT] toggle | ESP + Aimbot ready",
-        Duration = 5,
+    State.LocalTeamName = Services.getTeamName(LP)
+    Events.connect()
+    task.wait(1)
+    Library:Notify({
+        Title       = "RIOTFALL Dev Menu v" .. Config.VERSION,
+        Description = "Team: " .. State.LocalTeamName .. "  |  RightShift = toggle",
+        Time        = 4,
     })
 end)
