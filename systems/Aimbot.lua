@@ -1,35 +1,39 @@
 -- systems/Aimbot.lua
 --[[
-    Aimbot v2.3
-    - Primary targeting: CharacterCollisions animated bone MeshParts
-    - Fallback: Characters static Top/Center/Bottom parts
-    - Velocity prediction: samples position delta over two frames
-    - Raycast filter: built once, reused, rebuilt only on demand
-    - FOV stored internally, exposed via getFOV()
+    Aimbot v2.4
+    Fixes:
+    - FOV: read directly from AimbotSettings.FOVRadius (not a stale copy)
+      AND AimbotTab calls Aimbot.setFOV(Options.AimbotFOV.Value) immediately on load
+    - Bounce fix: only call mousemoverel when delta.Magnitude > MinDeltaMagnitude
+      so sub-pixel corrections don't cause snap-back when target is lost
+    - Raycast filter lazy-rebuild via dirty flag
+    - Velocity prediction preserved
 ]]
 
 return function(Services, Config, State)
-    local Players           = Services.Players
-    local LP                = Services.LP
-    local Camera            = Services.Camera
-    local Workspace         = Services.Workspace
-    local UIS               = Services.UserInputService
-    local CharCollisions    = Services.CharacterCollisions
-    local Characters        = Services.Characters
+    local Players        = Services.Players
+    local LP             = Services.LP
+    local Camera         = Services.Camera
+    local Workspace      = Services.Workspace
+    local UIS            = Services.UserInputService
+    local CharCollisions = Services.CharacterCollisions
+    local Characters     = Services.Characters
 
-    local AimbotSettings = {
+    -- Single source of truth for all aimbot settings
+    -- UI MUST call setters to write here; never read Config directly at runtime
+    local S = {
         Enabled    = false,
         EnemyOnly  = true,
         VisCheck   = true,
         FOVRadius  = Config.Aimbot.FOVRadius,
         Smoothing  = Config.Aimbot.Smoothing,
-        BoneName   = Config.Aimbot.DefaultBone,   -- "Head"|"Chest"|"Pelvis"|"Legs"
+        BoneName   = Config.Aimbot.DefaultBone,
     }
 
-    -- ── Raycast filter (lazy rebuild) ─────────────────────────────
+    -- ── Raycast filter ────────────────────────────────────────────
     local RCP = RaycastParams.new()
     RCP.FilterType = Enum.RaycastFilterType.Exclude
-    local rcpDirty = true   -- rebuild on next use
+    local rcpDirty = true
 
     local function markRCPDirty() rcpDirty = true end
 
@@ -38,57 +42,52 @@ return function(Services, Config, State)
         local ex = {}
         local lc = LP.Character
         if lc then table.insert(ex, lc) end
-        if CharCollisions then table.insert(ex, CharCollisions) end
+        if CharCollisions          then table.insert(ex, CharCollisions) end
         if Services.CharacterMeshes then table.insert(ex, Services.CharacterMeshes) end
         RCP.FilterDescendantsInstances = ex
         rcpDirty = false
         return RCP
     end
 
-    -- Rebuild when local character changes
-    local function watchCharacter()
-        State:Track(LP.CharacterAdded:Connect(function()
-            markRCPDirty()
-        end))
-    end
-    watchCharacter()
+    State:Track(LP.CharacterAdded:Connect(markRCPDirty))
 
-    -- ── Visibility check ──────────────────────────────────────────
+    -- ── Visibility ────────────────────────────────────────────────
     local function isVisible(pos)
         local origin = Camera.CFrame.Position
         local dir    = pos - origin
         local result = Workspace:Raycast(origin, dir, getRCP())
         if not result then return true end
-        -- Hit something inside Characters folder = target's own hitbox part = visible
         return Characters and result.Instance:IsDescendantOf(Characters)
     end
 
     -- ── Bone resolution ───────────────────────────────────────────
-    -- Returns world Position of the best available bone for the given config
+    local function resolveTargetPos(player)
+        local boneCfg = Config.Aimbot.Bones[S.BoneName]
+            or Config.Aimbot.Bones["Head"]
 
-    local function resolveTargetPart(player)
-        local boneCfg = Config.Aimbot.Bones[AimbotSettings.BoneName]
-        if not boneCfg then
-            boneCfg = Config.Aimbot.Bones["Head"]
-        end
-
-        -- 1. Try CharacterCollisions animated bones (follows skeleton animation)
+        -- Primary: animated collision bones
         if CharCollisions then
-            local collModel = CharCollisions:FindFirstChild(player.Name)
-            if collModel then
+            local model = CharCollisions:FindFirstChild(player.Name)
+            if model then
                 for _, boneName in ipairs(boneCfg.collision) do
-                    local part = collModel:FindFirstChild(boneName)
-                    if part then return part, boneCfg.predictScale end
+                    local part = model:FindFirstChild(boneName)
+                    if part then
+                        local ok, pos = pcall(function() return part.Position end)
+                        if ok then return pos, boneCfg.predictScale end
+                    end
                 end
             end
         end
 
-        -- 2. Fallback: Characters static parts
+        -- Fallback: static Characters parts
         if Characters then
-            local charModel = Characters:FindFirstChild(player.Name)
-            if charModel then
-                local part = charModel:FindFirstChild(boneCfg.fallback)
-                if part then return part, boneCfg.predictScale * 0.5 end
+            local model = Characters:FindFirstChild(player.Name)
+            if model then
+                local part = model:FindFirstChild(boneCfg.fallback)
+                if part then
+                    local ok, pos = pcall(function() return part.Position end)
+                    if ok then return pos, boneCfg.predictScale * 0.5 end
+                end
             end
         end
 
@@ -96,30 +95,21 @@ return function(Services, Config, State)
     end
 
     -- ── Velocity prediction ───────────────────────────────────────
-    -- Stores previous position per player to estimate velocity
-    local prevPositions = {}   -- [userId] = { pos = Vector3, t = tick() }
+    local prevPos = {}   -- [userId] = { pos, t }
 
-    local function getPredictedPosition(player, part, predictScale)
-        local ok, curPos = pcall(function() return part.Position end)
-        if not ok then return nil end
-
+    local function predictedPos(player, rawPos, scale)
         local uid  = player.UserId
         local now  = tick()
-        local prev = prevPositions[uid]
-
-        prevPositions[uid] = { pos = curPos, t = now }
-
-        if not prev then return curPos end
-
+        local prev = prevPos[uid]
+        prevPos[uid] = { pos = rawPos, t = now }
+        if not prev then return rawPos end
         local dt = now - prev.t
-        if dt <= 0 or dt > 0.5 then return curPos end  -- stale, don't predict
-
-        local velocity = (curPos - prev.pos) / dt
-        -- Predict predictScale seconds ahead (tuned per bone)
-        return curPos + velocity * predictScale
+        if dt <= 0 or dt > 0.5 then return rawPos end
+        local vel = (rawPos - prev.pos) / dt
+        return rawPos + vel * scale
     end
 
-    -- ── Screen helpers ────────────────────────────────────────────
+    -- ── Screen helper ─────────────────────────────────────────────
     local function worldToScreen(pos)
         local ok, vp = pcall(function()
             return Camera:WorldToViewportPoint(pos)
@@ -129,44 +119,47 @@ return function(Services, Config, State)
     end
 
     -- ── Find best target ─────────────────────────────────────────
+    -- Reads S.FOVRadius directly — always current, never stale
     local function findBestTarget()
         local center   = Camera.ViewportSize / 2
-        local bestDist = AimbotSettings.FOVRadius
+        local bestDist = S.FOVRadius          -- ← reads live value every call
         local bestPos  = nil
 
         for _, player in ipairs(Players:GetPlayers()) do
             if player == LP then continue end
-            if AimbotSettings.EnemyOnly and not State:IsEnemy(player) then continue end
+            if S.EnemyOnly and not State:IsEnemy(player) then continue end
 
-            local part, predictScale = resolveTargetPart(player)
-            if not part then continue end
+            local rawPos, scale = resolveTargetPos(player)
+            if not rawPos then continue end
 
-            local predictedPos = getPredictedPosition(player, part, predictScale)
-            if not predictedPos then continue end
+            local predPos = predictedPos(player, rawPos, scale)
 
-            if AimbotSettings.VisCheck and not isVisible(predictedPos) then continue end
+            if S.VisCheck and not isVisible(predPos) then continue end
 
-            local screenPos, onScreen = worldToScreen(predictedPos)
+            local screenPos, onScreen = worldToScreen(predPos)
             if not onScreen then continue end
 
             local dist = (screenPos - center).Magnitude
             if dist < bestDist then
                 bestDist = dist
-                bestPos  = predictedPos
+                bestPos  = predPos
             end
         end
 
         return bestPos
     end
 
-    -- ── Step (called every RenderStepped) ─────────────────────────
+    -- ── Step ──────────────────────────────────────────────────────
     local Aimbot = {}
+    local MIN_DELTA = Config.Aimbot.MinDeltaMagnitude
 
     function Aimbot.step()
-        if not AimbotSettings.Enabled then
+        if not S.Enabled then
             State.AimbotLocked = nil
             return
         end
+
+        -- Only active while RMB held
         if not UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             State.AimbotLocked = nil
             return
@@ -175,26 +168,38 @@ return function(Services, Config, State)
         local targetPos = findBestTarget()
         State.AimbotLocked = targetPos
 
+        -- No target in FOV: do nothing (no mousemoverel call)
+        -- This prevents the snap-back that occurs when mousemoverel(0,0) is called
         if not targetPos then return end
 
         local screenPos, onScreen = worldToScreen(targetPos)
         if not onScreen then return end
 
         local center = Camera.ViewportSize / 2
-        local delta  = (screenPos - center) * (1 - AimbotSettings.Smoothing)
+        local delta  = (screenPos - center) * (1 - S.Smoothing)
+
+        -- Sub-pixel guard: don't move mouse for tiny corrections
+        -- This prevents jitter/bounce on close targets and after kills
+        if delta.Magnitude < MIN_DELTA then return end
 
         if mousemoverel then
             mousemoverel(delta.X, delta.Y)
         end
     end
 
-    function Aimbot.getFOV()      return AimbotSettings.FOVRadius end
-    function Aimbot.setEnabled(v) AimbotSettings.Enabled   = v;  markRCPDirty() end
-    function Aimbot.setEnemyOnly(v) AimbotSettings.EnemyOnly = v end
-    function Aimbot.setVisCheck(v)  AimbotSettings.VisCheck  = v end
-    function Aimbot.setFOV(v)       AimbotSettings.FOVRadius = v end
-    function Aimbot.setSmoothing(v) AimbotSettings.Smoothing = v end
-    function Aimbot.setBone(v)      AimbotSettings.BoneName  = v end
+    function Aimbot.getFOV()       return S.FOVRadius end
+
+    -- All setters write to S immediately
+    function Aimbot.setEnabled(v)  S.Enabled   = v ; markRCPDirty() end
+    function Aimbot.setEnemyOnly(v) S.EnemyOnly = v end
+    function Aimbot.setVisCheck(v)  S.VisCheck  = v end
+    function Aimbot.setSmoothing(v) S.Smoothing = v end
+    function Aimbot.setBone(v)      S.BoneName  = v end
+
+    -- setFOV: the critical fix — writes to S.FOVRadius which findBestTarget reads live
+    function Aimbot.setFOV(v)
+        S.FOVRadius = v
+    end
 
     return Aimbot
 end

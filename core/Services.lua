@@ -12,8 +12,6 @@ local Services = {
     Workspace         = Workspace,
     HttpService       = game:GetService("HttpService"),
     Camera            = Workspace.CurrentCamera,
-
-    -- Cached folder references (set once, never re-searched)
     CharacterMeshes     = Workspace:WaitForChild("CharacterMeshes",     10),
     Characters          = Workspace:WaitForChild("Characters",          10),
     CharacterCollisions = Workspace:WaitForChild("CharacterCollisions", 10),

@@ -1,9 +1,8 @@
 -- ui/Tabs/PlayersTab.lua
 return function(Services, Config, _State, Library, Tabs)
-    local Players   = Services.Players
-    local LP        = Services.LP
-    local Workspace = Services.Workspace
-    local Options   = Library.Options
+    local Players = Services.Players
+    local LP      = Services.LP
+    local Options = Library.Options
 
     local LeftBox  = Tabs.Players:AddLeftGroupbox("ORANGE Team")
     local RightBox = Tabs.Players:AddRightGroupbox("BLUE Team")
@@ -12,10 +11,10 @@ return function(Services, Config, _State, Library, Tabs)
     local built = {}
 
     local FN = {
-        weapon_m4a1 = "M4A1", weapon_g17 = "G17",
-        equipment_frag = "Frag", equipment_stun = "Stun",
+        weapon_m4a1    = "M4A1",    weapon_g17     = "G17",
+        equipment_frag = "Frag",    equipment_stun = "Stun",
         perk_endurance = "Endurance", perk_fastHands = "Fast Hands",
-        perk_anchor = "Anchor",
+        perk_anchor    = "Anchor",
     }
 
     local function fn(id)
@@ -35,13 +34,13 @@ return function(Services, Config, _State, Library, Tabs)
         end)
         if not ok or not raw then return nil end
         return {
-            primary  = fn(raw.loadout_primary  and raw.loadout_primary.id),
-            secondary= fn(raw.loadout_secondary and raw.loadout_secondary.id),
-            lethal   = fn(raw.loadout_lethal    and raw.loadout_lethal.id),
-            tactical = fn(raw.loadout_tactical  and raw.loadout_tactical.id),
-            perk1    = fn(raw.loadout_perk1     and raw.loadout_perk1.id),
-            perk2    = fn(raw.loadout_perk2     and raw.loadout_perk2.id),
-            perk3    = fn(raw.loadout_perk3     and raw.loadout_perk3.id),
+            primary   = fn(raw.loadout_primary   and raw.loadout_primary.id),
+            secondary = fn(raw.loadout_secondary  and raw.loadout_secondary.id),
+            lethal    = fn(raw.loadout_lethal     and raw.loadout_lethal.id),
+            tactical  = fn(raw.loadout_tactical   and raw.loadout_tactical.id),
+            perk1     = fn(raw.loadout_perk1      and raw.loadout_perk1.id),
+            perk2     = fn(raw.loadout_perk2      and raw.loadout_perk2.id),
+            perk3     = fn(raw.loadout_perk3      and raw.loadout_perk3.id),
         }
     end
 
@@ -54,7 +53,7 @@ return function(Services, Config, _State, Library, Tabs)
         local ld    = parseLoadout(player)
 
         box:AddLabel("PC_"..n.."_name", {
-            Text = (enemy and "[E] " or "[T] ") .. n, DoesWrap = false })
+            Text = (enemy and "[E] " or "[T] ")..n, DoesWrap = false })
         if ld then
             box:AddLabel("PC_"..n.."_pri",  {
                 Text = "  "..ld.primary.." / "..ld.secondary, DoesWrap = false })
@@ -64,7 +63,7 @@ return function(Services, Config, _State, Library, Tabs)
                 Text = "  "..ld.perk1.." / "..ld.perk2.." / "..ld.perk3,
                 DoesWrap = true })
         else
-            box:AddLabel("PC_"..n.."_ld", {
+            box:AddLabel("PC_"..n.."_ld",   {
                 Text = "  (loading...)", DoesWrap = false })
         end
         box:AddDivider()
@@ -85,17 +84,14 @@ return function(Services, Config, _State, Library, Tabs)
                 if not ld then continue end
                 local n = p.Name
                 local function ts(key, text)
-                    local ok, opt = pcall(function()
-                        return Options["PC_"..n..key]
-                    end)
+                    local ok, opt = pcall(function() return Options["PC_"..n..key] end)
                     if ok and opt and opt.SetText then opt:SetText(text) end
                 end
                 ts("_pri",  "  "..ld.primary.." / "..ld.secondary)
                 ts("_eq",   "  "..ld.lethal.." | "..ld.tactical)
                 ts("_perk", "  "..ld.perk1.." / "..ld.perk2.." / "..ld.perk3)
             end
-            Library:Notify({
-                Title = "Loadouts Refreshed", Description = "Done.", Time = 2 })
+            Library:Notify({ Title="Loadouts Refreshed", Description="Done.", Time=2 })
         end,
     })
 end

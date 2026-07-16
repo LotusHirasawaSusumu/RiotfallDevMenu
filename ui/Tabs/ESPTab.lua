@@ -4,15 +4,14 @@ return function(Services, Config, _State, Library, Tabs, ESP)
     local Toggles = Library.Toggles
 
     local LeftBox  = Tabs.ESP:AddLeftGroupbox("Chams ESP")
-    local RightBox = Tabs.ESP:AddRightGroupbox("Name Tag")
+    local TagBox   = Tabs.ESP:AddRightGroupbox("Name Tag")
     local ColorBox = Tabs.ESP:AddRightGroupbox("Colors")
 
-    -- Left: core toggles
     LeftBox:AddToggle("ESPEnabled", {
         Text    = "Enable ESP",
         Default = false,
         Risky   = true,
-        Tooltip = "Chams via CharacterMeshes (bypasses game monitoring)",
+        Tooltip = "Chams via CharacterMeshes. Auto-scans every 3s.",
     })
 
     LeftBox:AddToggle("ESPEnemiesOnly", {
@@ -25,60 +24,78 @@ return function(Services, Config, _State, Library, Tabs, ESP)
     LeftBox:AddSlider("ESPFillTransp", {
         Text     = "Fill Transparency",
         Default  = 40,
-        Min      = 0, Max = 100, Rounding = 0, Suffix = "%",
+        Min      = 0,
+        Max      = 100,
+        Rounding = 0,
+        Suffix   = "%",
     })
 
     LeftBox:AddSlider("ESPOutlineTransp", {
         Text     = "Outline Transparency",
         Default  = 10,
-        Min      = 0, Max = 100, Rounding = 0, Suffix = "%",
+        Min      = 0,
+        Max      = 100,
+        Rounding = 0,
+        Suffix   = "%",
     })
 
-    -- Right: name tag settings (CS2-style)
-    RightBox:AddToggle("ESPShowName", {
+    -- Name tag
+    TagBox:AddToggle("ESPShowName", {
         Text    = "Show Name Tag",
         Default = false,
-        Tooltip = "CS2-style tag: name, distance, weapon, HP bar",
+        Tooltip = "Name, distance, weapon above head",
     })
 
-    RightBox:AddToggle("ESPShowDistance", {
+    TagBox:AddToggle("ESPShowDistance", {
         Text    = "Show Distance",
         Default = true,
     })
 
-    RightBox:AddToggle("ESPShowWeapon", {
+    TagBox:AddToggle("ESPShowWeapon", {
         Text    = "Show Weapon",
         Default = true,
     })
 
-    RightBox:AddToggle("ESPShowHealthBar", {
-        Text    = "Show Health Bar",
-        Default = true,
-    })
+    TagBox:AddDivider()
 
-    RightBox:AddDivider()
-
-    RightBox:AddSlider("ESPMaxDistance", {
+    TagBox:AddSlider("ESPMaxDistance", {
         Text     = "Max Tag Distance",
-        Default  = Config.ESP.MaxNameDistance,
-        Min      = 20, Max = 500, Rounding = 0, Suffix = "m",
-        Tooltip  = "Hide name tag beyond this many meters",
+        Default  = 2000,
+        Min      = 50,
+        Max      = 5000,
+        Rounding = 0,
+        Suffix   = "m",
+        Tooltip  = "Hide name tag beyond this distance",
     })
 
     -- Colors
-    ColorBox:AddLabel("Enemy Color")
-        :AddColorPicker("ESPEnemyColor", {
+    ColorBox:AddLabel("Enemy Fill Color")
+        :AddColorPicker("ESPEnemyFillColor", {
             Default = Config.ESP.EnemyFillColor,
-            Title   = "Enemy Color",
+            Title   = "Enemy Fill Color",
         })
 
-    ColorBox:AddLabel("Ally Color")
-        :AddColorPicker("ESPAllyColor", {
+    ColorBox:AddLabel("Ally Fill Color")
+        :AddColorPicker("ESPAllyFillColor", {
             Default = Config.ESP.AllyFillColor,
-            Title   = "Ally Color",
+            Title   = "Ally Fill Color",
         })
 
-    -- Wire
+    ColorBox:AddDivider()
+
+    ColorBox:AddLabel("Enemy Name Color")
+        :AddColorPicker("ESPEnemyNameColor", {
+            Default = Config.ESP.EnemyNameColor,
+            Title   = "Enemy Name Color",
+        })
+
+    ColorBox:AddLabel("Ally Name Color")
+        :AddColorPicker("ESPAllyNameColor", {
+            Default = Config.ESP.AllyNameColor,
+            Title   = "Ally Name Color",
+        })
+
+    -- Wire — all OnChanged after all elements created
     Toggles.ESPEnabled:OnChanged(function()
         ESP.setEnabled(Toggles.ESPEnabled.Value)
     end)
@@ -101,11 +118,6 @@ return function(Services, Config, _State, Library, Tabs, ESP)
         if Toggles.ESPEnabled.Value then ESP.refreshAll() end
     end)
 
-    Toggles.ESPShowHealthBar:OnChanged(function()
-        ESP.setShowHealthBar(Toggles.ESPShowHealthBar.Value)
-        if Toggles.ESPEnabled.Value then ESP.refreshAll() end
-    end)
-
     Options.ESPMaxDistance:OnChanged(function()
         ESP.setMaxDistance(Options.ESPMaxDistance.Value)
     end)
@@ -118,15 +130,23 @@ return function(Services, Config, _State, Library, Tabs, ESP)
         ESP.setOutlineTransparency(Options.ESPOutlineTransp.Value / 100)
     end)
 
-    Options.ESPEnemyColor:OnChanged(function()
-        Config.ESP.EnemyFillColor    = Options.ESPEnemyColor.Value
-        Config.ESP.EnemyOutlineColor = Options.ESPEnemyColor.Value
+    Options.ESPEnemyFillColor:OnChanged(function()
+        Config.ESP.EnemyFillColor    = Options.ESPEnemyFillColor.Value
+        Config.ESP.EnemyOutlineColor = Options.ESPEnemyFillColor.Value
         if Toggles.ESPEnabled.Value then ESP.refreshAll() end
     end)
 
-    Options.ESPAllyColor:OnChanged(function()
-        Config.ESP.AllyFillColor    = Options.ESPAllyColor.Value
-        Config.ESP.AllyOutlineColor = Options.ESPAllyColor.Value
+    Options.ESPAllyFillColor:OnChanged(function()
+        Config.ESP.AllyFillColor    = Options.ESPAllyFillColor.Value
+        Config.ESP.AllyOutlineColor = Options.ESPAllyFillColor.Value
         if Toggles.ESPEnabled.Value then ESP.refreshAll() end
+    end)
+
+    Options.ESPEnemyNameColor:OnChanged(function()
+        ESP.setEnemyNameColor(Options.ESPEnemyNameColor.Value)
+    end)
+
+    Options.ESPAllyNameColor:OnChanged(function()
+        ESP.setAllyNameColor(Options.ESPAllyNameColor.Value)
     end)
 end

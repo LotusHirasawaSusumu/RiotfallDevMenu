@@ -1,7 +1,6 @@
 -- systems/Camera.lua
 return function(Services, Config, _State)
     local Camera = Services.Camera
-
     local S = { Enabled = false, FOV = Config.Camera.DefaultFOV }
     local M = {}
 

@@ -1,12 +1,13 @@
 -- core/Config.lua
 local Config = {
-    VERSION = "2.3",
+    VERSION = "2.4",
 
     Folders = {
         Characters          = "Characters",
         CharacterMeshes     = "CharacterMeshes",
         CharacterCollisions = "CharacterCollisions",
         PlayerHighlights    = "PlayerHighlights",
+        VoiceOrigins        = "VoiceOrigins",
     },
 
     Events = {
@@ -23,49 +24,43 @@ local Config = {
         AllyOutlineColor    = Color3.fromRGB(0,   150, 255),
         FillTransparency    = 0.4,
         OutlineTransparency = 0.1,
-        -- Name tag defaults
-        NameColor           = Color3.fromRGB(255, 255, 255),
+        NameColor           = Color3.fromRGB(255, 220, 80),  -- bright yellow, visible on all maps
+        EnemyNameColor      = Color3.fromRGB(255, 80,  80),
+        AllyNameColor       = Color3.fromRGB(80,  180, 255),
         NameSize            = 13,
         ShowDistance        = true,
         ShowWeapon          = true,
-        ShowHealthBar       = true,
-        MaxNameDistance     = 200,  -- studs, beyond this name tag hidden
+        MaxNameDistance     = 2000,  -- studs, large map support
     },
 
-    -- Aimbot bone priority map
-    -- Primary: CharacterCollisions MeshPart names (animated, follows skeleton)
-    -- Fallback: Characters static part names
     Aimbot = {
-        FOVRadius   = 120,
+        FOVRadius   = 150,
         Smoothing   = 0.15,
         VisCheck    = true,
-        -- Bone configs
         Bones = {
             Head = {
-                -- Ordered by preference
-                collision = { "Neck" },
-                fallback  = "Top",
-                -- Velocity prediction multiplier (seconds ahead)
-                -- Head moves more erratically, predict less
+                collision    = { "Neck" },
+                fallback     = "Top",
                 predictScale = 0.06,
             },
             Chest = {
-                collision = { "MidUpperSpine", "LowerSpine" },
-                fallback  = "Center",
+                collision    = { "MidUpperSpine", "LowerSpine" },
+                fallback     = "Center",
                 predictScale = 0.08,
             },
             Pelvis = {
-                collision = { "LowerSpine" },
-                fallback  = "Center",
+                collision    = { "LowerSpine" },
+                fallback     = "Center",
                 predictScale = 0.10,
             },
             Legs = {
-                collision = { "UpperLeg.L", "UpperLeg.R" },
-                fallback  = "Bottom",
+                collision    = { "UpperLeg.L", "UpperLeg.R" },
+                fallback     = "Bottom",
                 predictScale = 0.05,
             },
         },
-        DefaultBone = "Head",
+        DefaultBone     = "Head",
+        MinDeltaMagnitude = 0.5,  -- px, ignore sub-pixel movements to prevent bounce
     },
 
     Camera = {
@@ -75,7 +70,6 @@ local Config = {
     },
 
     FOVCircle = {
-        -- UIStroke thickness in pixels — 1 = thinnest crisp ring
         Thickness    = 1,
         Transparency = 0.3,
         Color        = Color3.fromRGB(255, 255, 255),

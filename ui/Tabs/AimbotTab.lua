@@ -1,4 +1,10 @@
 -- ui/Tabs/AimbotTab.lua
+--[[
+    Critical fix: call Aimbot.setFOV(Options.AimbotFOV.Value) immediately
+    after wiring OnChanged, so the initial slider value is applied on load
+    rather than waiting for the user to move the slider.
+]]
+
 return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
     local Options = Library.Options
     local Toggles = Library.Toggles
@@ -26,18 +32,25 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
 
     LeftBox:AddDivider()
 
+    -- FOV slider with precise range
     LeftBox:AddSlider("AimbotFOV", {
         Text     = "FOV Radius",
         Default  = Config.Aimbot.FOVRadius,
-        Min      = 10, Max = 500, Rounding = 0, Suffix = "px",
-        Tooltip  = "Pixel radius — circle diameter = this value × 2",
+        Min      = 1,
+        Max      = 800,
+        Rounding = 0,
+        Suffix   = "px",
+        Tooltip  = "Screen pixel radius. Circle diameter = this × 2.",
     })
 
     LeftBox:AddSlider("AimbotSmoothing", {
         Text     = "Smoothing",
         Default  = 15,
-        Min      = 0, Max = 99, Rounding = 0, Suffix = "%",
-        Tooltip  = "0% = instant | 99% = very slow",
+        Min      = 0,
+        Max      = 99,
+        Rounding = 0,
+        Suffix   = "%",
+        Tooltip  = "0% = instant snap | 99% = very slow",
     })
 
     LeftBox:AddDivider()
@@ -54,25 +67,24 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
             Title   = "FOV Circle Color",
         })
 
-    -- Bone selector
     RightBox:AddDropdown("AimbotBone", {
         Values  = { "Head", "Chest", "Pelvis", "Legs" },
         Default = 1,
         Text    = "Target Bone",
-        Tooltip = "Uses animated CharacterCollisions bones with static fallback",
+        Tooltip = "Uses animated CharacterCollisions bones",
     })
 
     RightBox:AddDivider()
-    RightBox:AddLabel("Head   → Neck bone (animated)", true)
-    RightBox:AddLabel("Chest  → MidUpperSpine (animated)", true)
-    RightBox:AddLabel("Pelvis → LowerSpine (animated)", true)
-    RightBox:AddLabel("Legs   → UpperLeg.L/R (animated)", true)
+    RightBox:AddLabel("Head   → Neck (animated bone)", true)
+    RightBox:AddLabel("Chest  → MidUpperSpine",        true)
+    RightBox:AddLabel("Pelvis → LowerSpine",           true)
+    RightBox:AddLabel("Legs   → UpperLeg.L/R",         true)
     RightBox:AddDivider()
-    RightBox:AddLabel("Velocity prediction enabled.", true)
-    RightBox:AddLabel("Fallback to static parts if", true)
-    RightBox:AddLabel("collision model unavailable.", true)
+    RightBox:AddLabel("Velocity prediction active.",   true)
+    RightBox:AddLabel("Static fallback if collision",  true)
+    RightBox:AddLabel("model is unavailable.",         true)
 
-    -- Wire
+    -- Wire OnChanged
     Toggles.AimbotEnabled:OnChanged(function()
         Aimbot.setEnabled(Toggles.AimbotEnabled.Value)
     end)
@@ -89,9 +101,15 @@ return function(Services, Config, _State, Library, Tabs, Aimbot, FOVCircle)
         Aimbot.setFOV(Options.AimbotFOV.Value)
     end)
 
+    -- ✅ CRITICAL FIX: apply initial slider value immediately on load
+    -- Without this line, FOV stays at Config default until user moves slider
+    Aimbot.setFOV(Options.AimbotFOV.Value)
+
     Options.AimbotSmoothing:OnChanged(function()
         Aimbot.setSmoothing(Options.AimbotSmoothing.Value / 100)
     end)
+    -- Apply initial smoothing value too
+    Aimbot.setSmoothing(Options.AimbotSmoothing.Value / 100)
 
     Options.AimbotBone:OnChanged(function()
         Aimbot.setBone(Options.AimbotBone.Value)
